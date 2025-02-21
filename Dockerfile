@@ -1,8 +1,9 @@
 # Base image with CUDA 12.2 ML and Ubuntu 22.04
-FROM nvidia/cuda:12.2.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu24.04
 
 # Set environment variables for non-interactive installation
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install system dependencies
 RUN apt-get update && \
@@ -13,6 +14,7 @@ RUN apt-get update && \
         zip \
         unzip \
         python3-pip \
+        python3-venv \
         python3-dev \
         libgl1 \
         libglib2.0-0 \
@@ -20,15 +22,19 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up Python and pip
-RUN ln -s /usr/bin/python3 /usr/bin/python && \
-    pip3 install --upgrade pip
+# Set up Python, pip, and virtual environment
+RUN python3 -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    pip install --upgrade pip && \
+    rm -f /usr/bin/python /usr/bin/pip && \
+    ln -sf /opt/venv/bin/python /usr/bin/python && \
+    ln -sf /opt/venv/bin/pip /usr/bin/pip
 
 # Install JupyterLab and required Python packages
 RUN pip install jupyterlab notebook ipywidgets
 
-# Install PyTorch with CUDA 12.2 support
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu122
+# Install PyTorch with CUDA 12.8 support
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 
 # Install ComfyUI
 WORKDIR /workspace
@@ -44,8 +50,8 @@ RUN pip install -r requirements.txt
 # Install Forge from the correct repo
 WORKDIR /workspace
 RUN git clone https://github.com/lllyasviel/stable-diffusion-webui-forge.git forge
-WORKDIR /workspace/forge
-RUN pip install -r requirements.txt
+# WORKDIR /workspace/forge
+# RUN pip install -r requirements.txt
 
 # Expose JupyterLab port
 EXPOSE 8888
@@ -54,7 +60,7 @@ EXPOSE 8888
 EXPOSE 8188
 
 # Expose Forge port
-EXPOSE 8288
+EXPOSE 8388
 
 # Start JupyterLab by default
 CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
